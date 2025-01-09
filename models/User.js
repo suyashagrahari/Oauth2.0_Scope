@@ -82,4 +82,10 @@ userSchema.statics.convertToObjectId = function (id) {
   return mongoose.Types.ObjectId(id);
 };
 
+// Method to update access token
+userSchema.methods.updateAccessToken = function (newAccessToken) {
+  this.accessToken = newAccessToken;
+  return this.save();
+};
+
 module.exports = mongoose.model("User", userSchema);

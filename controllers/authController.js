@@ -1,7 +1,7 @@
 const User = require("../models/User");
 const { google } = require("googleapis");
 const oauth2Client = require("../utils/googleClient");
-
+const { v4: uuidv4 } = require("uuid");
 exports.getAuthUrl = (req, res) => {
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
@@ -44,7 +44,7 @@ exports.googleCallback = async (req, res) => {
     await calendar.events.watch({
       calendarId: "primary",
       resource: {
-        id: user.googleId + "-channel", // Unique channel ID
+        id: user.googleId + uuidv4() + user._id, // Unique channel ID
         type: "web_hook",
         address: process.env.WEBHOOK_URL, // Your webhook URL
         params: { ttl: 3600 }, // Time-to-live for the notification channel

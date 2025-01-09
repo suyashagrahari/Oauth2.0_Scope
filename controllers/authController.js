@@ -3,6 +3,7 @@ const { google } = require("googleapis");
 const oauth2Client = require("../utils/googleClient");
 const { v4: uuidv4 } = require("uuid");
 exports.getAuthUrl = (req, res) => {
+  console.log("evejbvnjejvberjvnb");
   const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: [
@@ -13,11 +14,13 @@ exports.getAuthUrl = (req, res) => {
     ],
     prompt: "consent",
   });
+  console.log("url-->", url);
   res.json({ url });
 };
 
 exports.googleCallback = async (req, res) => {
   const { code } = req.query;
+  console.log("code--->", code);
   try {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
@@ -41,12 +44,13 @@ exports.googleCallback = async (req, res) => {
 
     // Set up watch for calendar changes
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+    console.log("caleder -->", calendar);
     await calendar.events.watch({
       calendarId: "primary",
       resource: {
         id: user.googleId + uuidv4() + user._id, // Unique channel ID
         type: "web_hook",
-        address: process.env.WEBHOOK_URL, // Your webhook URL
+        address: `${process.env.WEBHOOK_URL}/api/webhook`, // Your webhook URL
         params: { ttl: 3600 }, // Time-to-live for the notification channel
       },
     });

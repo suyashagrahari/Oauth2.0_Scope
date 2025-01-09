@@ -58,8 +58,8 @@ async function updateUserEvents(user, events) {
 // Webhook endpoint
 router.post("/webhook", async (req, res) => {
   try {
-    console.log("Webhook payload:", req.body);
-    const { id } = req.body;
+    console.log("Webhook payload:", req);
+    const id = "677fb35076ca2a0cb1445172";
 
     // Find the user based on the resourceId (which should be the user's Google ID)
     const user = await User.findOne({ _id: id });

@@ -14,7 +14,7 @@ app.use(cors());
 
 app.use("/auth", authRoutes);
 app.use("/api", userRoutes);
-app.use("/api/", webhookRoutes);
+app.use("/api", webhookRoutes);
 // Add the date range validator middleware to the events endpoint
 
 const PORT = process.env.PORT || 5001;

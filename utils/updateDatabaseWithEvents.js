@@ -1,50 +1,27 @@
-const User = require("../models/User");
+async function updateUserEvents(user, events) {
+  // Get all event IDs from Google Calendar
+  const googleEventIds = new Set(events.map((event) => event.id));
 
-async function updateDatabaseWithEvents(events) {
+  // Remove events that are no longer in Google Calendar
+  user.events = user.events.filter((event) => googleEventIds.has(event.id));
+
+  // Update existing events and add new ones
   for (const event of events) {
-    let userEvent = await User.findOne({ "events.id": event.id }); // Assuming you have a User model with an embedded events array
+    const existingEventIndex = user.events.findIndex((e) => e.id === event.id);
 
-    if (!userEvent) {
-      userEvent = new User({
-        googleId: event.creator.email, // Adjust as necessary
-        email: event.creator.email,
-        name: event.summary,
-        events: [
-          {
-            id: event.id,
-            summary: event.summary,
-            start: event.start,
-            end: event.end,
-            // Add other fields as necessary
-          },
-        ],
-      });
+    if (existingEventIndex !== -1) {
+      // Update existing event
+      user.events[existingEventIndex] = {
+        ...user.events[existingEventIndex],
+        ...event,
+      };
     } else {
-      // Update existing event or add new one if it doesn't exist
-      const existingEventIndex = userEvent.events.findIndex(
-        (e) => e.id === event.id
-      );
-      if (existingEventIndex !== -1) {
-        userEvent.events[existingEventIndex] = {
-          id: event.id,
-          summary: event.summary,
-          start: event.start,
-          end: event.end,
-          // Update other fields as necessary
-        };
-      } else {
-        userEvent.events.push({
-          id: event.id,
-          summary: event.summary,
-          start: event.start,
-          end: event.end,
-          // Add other fields as necessary
-        });
-      }
+      // Add new event
+      user.events.push(event);
     }
-
-    await userEvent.save();
   }
+
+  await user.save();
 }
 
-module.exports = updateDatabaseWithEvents;
+module.exports = { updateUserEvents };

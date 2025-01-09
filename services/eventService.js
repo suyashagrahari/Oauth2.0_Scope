@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 
 const getEventsByDateRange = async (userId, start, end) => {
-  console.log("suyash -->", userId, start, end);
   try {
     // Validate and convert userId to ObjectId
     const objectId = new mongoose.Types.ObjectId(userId); // Use the 'new' keyword here

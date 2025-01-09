@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const { google } = require("googleapis");
 const oauth2Client = require("../utils/googleClient");
+const { v4: uuidv4 } = require("uuid");
 
 exports.getAuthUrl = (req, res) => {
   const url = oauth2Client.generateAuthUrl({
@@ -18,29 +19,47 @@ exports.getAuthUrl = (req, res) => {
 
 exports.googleCallback = async (req, res) => {
   const { code } = req.query;
+
   try {
+    // Get tokens from Google
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
+    // Get user info
     const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
     const { data } = await oauth2.userinfo.get();
 
-    let user = await User.findOne({ googleId: data.id });
-    if (!user) {
-      user = new User({
-        googleId: data.id,
-        email: data.email,
-        name: data.name,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-      });
-    } else {
-      user.accessToken = tokens.access_token;
-      if (tokens.refresh_token) user.refreshToken = tokens.refresh_token;
-    }
-
-    // Fetch calendar data
+    // Initialize calendar client
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
+
+    // Find or create user using findOneAndUpdate
+    const user = await User.findOneAndUpdate(
+      { googleId: data.id },
+      {
+        $set: {
+          email: data.email,
+          name: data.name,
+          accessToken: tokens.access_token,
+          ...(tokens.refresh_token && { refreshToken: tokens.refresh_token }),
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    // Set up watch for calendar changes
+    await calendar.events.watch({
+      calendarId: "primary",
+      resource: {
+        id: user.googleId + uuidv4() + user._id,
+        type: "web_hook",
+        address: `${process.env.WEBHOOK_URL}/api/webhook?googleId=${user.googleId}`,
+        params: { ttl: 300 },
+      },
+    });
 
     // Get calendar list
     const calendarList = await calendar.calendarList.list();
@@ -56,7 +75,7 @@ exports.googleCallback = async (req, res) => {
           singleEvents: true,
           orderBy: "startTime",
         });
-        // Filter out holidays and non-user-created events
+
         const userCreatedEvents = events.data.items.filter(
           (event) => !event.transparency || event.transparency !== "transparent"
         );
@@ -65,8 +84,8 @@ exports.googleCallback = async (req, res) => {
       } while (pageToken);
     }
 
-    // Update user's events in the database
-    user.events = allEvents.map((event) => ({
+    // Prepare events data
+    const eventsData = allEvents.map((event) => ({
       kind: event.kind,
       etag: event.etag,
       id: event.id,
@@ -94,7 +113,12 @@ exports.googleCallback = async (req, res) => {
       conferenceData: event.conferenceData,
     }));
 
-    await user.save();
+    // Update events using findOneAndUpdate to avoid version conflicts
+    await User.findOneAndUpdate(
+      { _id: user._id },
+      { $set: { events: eventsData } },
+      { new: true }
+    );
 
     res.redirect(`http://localhost:3000/dashboard?userId=${user._id}`);
   } catch (error) {

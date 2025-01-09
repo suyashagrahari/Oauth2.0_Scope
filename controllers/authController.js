@@ -39,12 +39,21 @@ exports.googleCallback = async (req, res) => {
       if (tokens.refresh_token) user.refreshToken = tokens.refresh_token;
     }
 
-    // Fetch calendar data
+    // Set up watch for calendar changes
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-
+    await calendar.events.watch({
+      calendarId: "primary",
+      resource: {
+        id: user.googleId + "-channel", // Unique channel ID
+        type: "web_hook",
+        address: process.env.WEBHOOK_URL, // Your webhook URL
+        params: { ttl: 3600 }, // Time-to-live for the notification channel
+      },
+    });
     // Get calendar list
     const calendarList = await calendar.calendarList.list();
 
+    console.log("calnederlist-->", calendarList);
     // Get all events from all calendars
     const allEvents = [];
     for (const cal of calendarList.data.items) {
